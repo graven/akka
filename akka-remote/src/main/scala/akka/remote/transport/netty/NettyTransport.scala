@@ -314,8 +314,9 @@ class NettyTransport(private val settings: NettyTransportSettings, private val s
   def addressFromSocketAddress(addr: SocketAddress,
                                systemName: Option[String] = None,
                                hostName: Option[String] = None): Option[Address] = addr match {
-    case sa: InetSocketAddress ⇒ Some(Address(schemeIdentifier, systemName.getOrElse(""), hostName.getOrElse(sa.getHostName), sa.getPort))
-    case _                     ⇒ None
+    case sa: InetSocketAddress ⇒ Some(Address(schemeIdentifier, systemName.getOrElse(""),
+      hostName.getOrElse(sa.getAddress.getHostAddress), sa.getPort)) // perhaps use getHostString in jdk 1.7
+    case _ ⇒ None
   }
 
   // TODO: This should be factored out to an async (or thread-isolated) name lookup service #2960
