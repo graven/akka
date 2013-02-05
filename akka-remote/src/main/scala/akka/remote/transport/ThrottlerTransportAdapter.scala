@@ -127,14 +127,19 @@ private[transport] object ThrottlerManager {
   case class Checkin(origin: Address, handle: ThrottlerHandle)
 }
 
-private[transport] class ThrottlerManager(wrappedTransport: Transport) extends ActorTransportAdapterManager {
+private[transport] class ThrottlerManager(wrappedTransport: Transport) extends ActorTransportAdapterManager with ActorLogging {
 
   import context.dispatcher
 
   private var throttlingModes = Map[Address, (ThrottleMode, Direction)]()
   private var handleTable = List[(Address, ThrottlerHandle)]()
 
-  private def nakedAddress(address: Address): Address = address.copy(protocol = "", system = "")
+  private def nakedAddress(address: Address): Address = {
+    //    val ia = java.net.InetAddress.getByName(address.host.get)
+    //    val a = address.copy(protocol = "", system = "", host = Some(ia.getHostAddress))
+    log.debug("ThrottlerManager nakedAddress [{}]", address)
+    address.copy(protocol = "", system = "")
+  }
 
   override def postStop(): Unit = wrappedTransport.shutdown()
 
@@ -158,6 +163,7 @@ private[transport] class ThrottlerManager(wrappedTransport: Transport) extends A
       handleTable ::= nakedAddress(naked) -> wrappedHandle
       statusPromise.success(wrappedHandle)
     case SetThrottle(address, direction, mode) ⇒
+      log.debug("SetThrottle {} {} {}", address, direction, mode)
       val naked = nakedAddress(address)
       throttlingModes += naked -> (mode, direction)
       val ok = Future.successful(SetThrottleAck)
@@ -360,8 +366,10 @@ private[transport] class ThrottledAssociation(
   private def peekOrigin(b: ByteString): Option[Address] = {
     try {
       AkkaPduProtobufCodec.decodePdu(b) match {
-        case Associate(_, origin) ⇒ Some(origin)
-        case _                    ⇒ None
+        case Associate(_, origin) ⇒
+          log.debug("peek origin: " + origin)
+          Some(origin)
+        case _ ⇒ None
       }
     } catch {
       // This layer should not care about malformed packets. Also, this also useful for testing, because

@@ -137,8 +137,9 @@ trait CommonHandlers extends NettyHelpers {
 
   final protected def init(channel: Channel, remoteSocketAddress: SocketAddress, msg: ChannelBuffer)(op: (AssociationHandle ⇒ Any)): Unit = {
     import transport._
-    (addressFromSocketAddress(channel.getLocalAddress), addressFromSocketAddress(remoteSocketAddress)) match {
+    (addressFromSocketAddress(channel.getLocalAddress, Some(transport.system.name), Some(transport.settings.Hostname)), addressFromSocketAddress(remoteSocketAddress)) match {
       case (Some(localAddress), Some(remoteAddress)) ⇒
+        transport.log.debug("Netty init localSocket {} remoteSocket {}", localAddress, remoteAddress)
         val handle = createHandle(channel, localAddress, remoteAddress)
         handle.readHandlerPromise.future.onSuccess {
           case listener: HandleEventListener ⇒
@@ -187,7 +188,7 @@ private[transport] object NettyTransport {
 }
 
 // FIXME: Split into separate UDP and TCP classes
-class NettyTransport(private val settings: NettyTransportSettings, private val system: ExtendedActorSystem) extends Transport {
+class NettyTransport(val settings: NettyTransportSettings, val system: ExtendedActorSystem) extends Transport {
 
   def this(system: ExtendedActorSystem, conf: Config) = this(new NettyTransportSettings(conf), system)
 
@@ -204,7 +205,7 @@ class NettyTransport(private val settings: NettyTransportSettings, private val s
   @volatile private var localAddress: Address = _
   @volatile private var serverChannel: Channel = _
 
-  private val log = Logging(system, this.getClass)
+  val log = Logging(system, this.getClass)
 
   final val udpConnectionTable = new ConcurrentHashMap[SocketAddress, HandleEventListener]()
 
@@ -340,6 +341,7 @@ class NettyTransport(private val settings: NettyTransportSettings, private val s
 
       addressFromSocketAddress(newServerChannel.getLocalAddress, Some(system.name), Some(settings.Hostname)) match {
         case Some(address) ⇒
+          log.debug("Netty listen {}", address)
           localAddress = address
           associationListenerPromise.future.onSuccess { case listener ⇒ newServerChannel.setReadable(true) }
           (address, associationListenerPromise)

@@ -19,7 +19,7 @@ import akka.remote.testkit.{ STMultiNodeSpec, MultiNodeSpec, MultiNodeConfig }
 import akka.remote.transport.ThrottlerTransportAdapter.Direction
 
 object TestConductorMultiJvmSpec extends MultiNodeConfig {
-  commonConfig(debugConfig(on = false))
+  commonConfig(debugConfig(on = true))
 
   val master = role("master")
   val slave = role("slave")
@@ -90,7 +90,7 @@ class TestConductorSpec extends MultiNodeSpec(TestConductorMultiJvmSpec) with ST
       }
 
       val (min, max) =
-        if(isNode(master))(0 seconds, 500 millis)
+        if (isNode(master)) (0 seconds, 500 millis)
         else (0.3 seconds, 2 seconds)
 
       within(min, max) {
